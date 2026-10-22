@@ -41,19 +41,19 @@ public final class TaskSummaryHelper {
                 ? task.getDueAt().format(DATE_FORMATTER)
                 : "No due date";
 
-        String description = task.getDescription() != null
-                && !task.getDescription().isBlank()
-                        ? task.getDescription()
-                        : "No description";
+        String note = task.getNote() != null
+                && !task.getNote().isBlank()
+                        ? task.getNote()
+                        : "No note";
 
         return """
                 - Title: %s
-                  Description: %s
+                  Note: %s
                   Status: %s
                   Due: %s
                 """.formatted(
                 task.getTitle(),
-                description,
+                note,
                 resolveStatus(task, now),
                 dueAt);
     }
