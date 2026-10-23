@@ -3,6 +3,7 @@ package sg.edu.ntu.taskflowapi;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+/** Starts the Taskflow Spring Boot application. */
 @SpringBootApplication
 public class TaskflowApiApplication {
 

@@ -6,6 +6,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * Standard JSON body returned for handled request errors.
+ */
 @Getter
 @Setter
 @AllArgsConstructor

@@ -7,20 +7,28 @@ import sg.edu.ntu.taskflowapi.repository.TaskRepository;
 import sg.edu.ntu.taskflowapi.exceptions.TaskNotFoundException;
 import sg.edu.ntu.taskflowapi.exceptions.StepNotFoundException;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
+import org.springframework.transaction.annotation.Transactional;
 
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.context.annotation.Primary;
-
-@Primary
+/** JPA-backed task service selected by the {@code jpa} profile. 
+ *  @Transactional - Keeps the entity fetch and subsequent mutation atomic within one transaction.
+ * 
+*/
 @Service
-@Slf4j 
+@Profile("jpa")
+@Primary
+@Slf4j
+
 public class TaskServiceImpl implements TaskService {
     private final TaskRepository taskRepository;
     private final StepRepository stepRepository;
@@ -46,6 +54,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional
     public Task createTask(Task task) {
         Task savedTask = taskRepository.save(task);
         log.info("Task created: taskId={}, title={}", savedTask.getId(), savedTask.getTitle());
@@ -54,12 +63,13 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional
     public Task updateTask(Long id, Task task) {
         Task existingTask = findTaskByIdOrThrow(id);
         existingTask.setTitle(task.getTitle());
         existingTask.setNote(task.getNote());
         existingTask.setCompleted(task.isCompleted());
-        existingTask.setDueAt(task.getDueAt());
+        existingTask.setDueDate(task.getDueDate());
         Task savedTask = taskRepository.save(existingTask);
         log.info("Task updated: taskId={}", id);
 
@@ -67,6 +77,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional
     public void deleteTask(Long id) {
         Task task = findTaskByIdOrThrow(id);
         taskRepository.deleteById(task.getId());
@@ -74,6 +85,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional
     public Task markTaskAsCompleted(Long id) {
         Task task = findTaskByIdOrThrow(id);
         task.setCompleted(COMPLETED);
@@ -92,10 +104,10 @@ public class TaskServiceImpl implements TaskService {
             return "There are no tasks.";
         }
 
-        final LocalDateTime now = LocalDateTime.now();
+        final LocalDate today = LocalDate.now();
 
         String taskList = tasks.stream()
-                .map(task -> TaskSummaryHelper.formatTasks(task, now))
+                .map(task -> TaskSummaryHelper.formatTasks(task, today))
                 .collect(Collectors.joining("\n"));
 
         log.info("Generating task summary for {} tasks", tasks.size());
@@ -124,12 +136,13 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public List<Task> searchTasksDueBefore(LocalDateTime dateTime) {
+    public List<Task> searchTasksDueBefore(LocalDate dueDate) {
 
-        return taskRepository.findByCompletedFalseAndDueAtBeforeOrderByDueAtAsc(dateTime);
+        return taskRepository.findByCompletedFalseAndDueDateBeforeOrderByDueDateAsc(dueDate);
     }
 
     @Override
+    @Transactional
     public Step addStepToTask(Long taskId, Step step) {
         Task task = findTaskByIdOrThrow(taskId);
 
@@ -141,6 +154,10 @@ public class TaskServiceImpl implements TaskService {
         step.setId(null);
         step.setTask(task);
         step.setStepOrder(nextStepOrder);
+        if (task.getSteps() == null) {
+            task.setSteps(new ArrayList<>());
+        }
+        task.getSteps().add(step);
         Step savedStep = stepRepository.save(step);
 
         log.info("Step created: taskId={}, stepId={}, stepOrder={}", taskId,
@@ -164,6 +181,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional
     public Step updateStep(Long taskId, Long stepId, Step updatedStep) {
         Step existingStep = findStepByIdOrThrow(taskId, stepId);
         existingStep.setDescription(updatedStep.getDescription());
@@ -174,20 +192,23 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional
     public void deleteStep(Long taskId, Long stepId) {
         Step step = findStepByIdOrThrow(taskId, stepId);
+        step.getTask().getSteps().remove(step);
         stepRepository.delete(step);
         log.info("Step deleted: taskId={}, stepId={}", taskId, stepId);
     }
 
     private Step findStepByIdOrThrow(Long taskId, Long stepId) {
+        findTaskByIdOrThrow(taskId);
 
         return stepRepository.findByIdAndTaskId(stepId, taskId)
                 .orElseThrow(() -> new StepNotFoundException(taskId, stepId));
     }
 
     private Task findTaskByIdOrThrow(Long id) {
-        
+
         return taskRepository.findById(id).orElseThrow(() -> new TaskNotFoundException(id));
     }
 

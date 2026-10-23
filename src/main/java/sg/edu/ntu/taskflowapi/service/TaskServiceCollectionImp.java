@@ -5,8 +5,7 @@ import sg.edu.ntu.taskflowapi.exceptions.StepNotFoundException;
 import sg.edu.ntu.taskflowapi.model.Step;
 import sg.edu.ntu.taskflowapi.model.Task;
 
-//import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -17,12 +16,16 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import lombok.extern.slf4j.Slf4j;
 
+/** Collection-backed task service selected by the {@code memory} profile. */
 @Service
-@Slf4j 
+@Profile("memory")
+@Slf4j
+
 public class TaskServiceCollectionImp implements TaskService {
 
     private static final boolean COMPLETED = true;
@@ -66,7 +69,7 @@ public class TaskServiceCollectionImp implements TaskService {
         existingTask.setTitle(task.getTitle());
         existingTask.setNote(task.getNote());
         existingTask.setCompleted(task.isCompleted());
-        existingTask.setDueAt(task.getDueAt());
+        existingTask.setDueDate(task.getDueDate());
 
         return existingTask;
     }
@@ -96,10 +99,10 @@ public class TaskServiceCollectionImp implements TaskService {
             return "There are no tasks.";
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        final LocalDate today = LocalDate.now();
 
         String formattedTasks = taskList.stream()
-                .map(task -> TaskSummaryHelper.formatTasks(task, now))
+                .map(task -> TaskSummaryHelper.formatTasks(task, today))
                 .collect(Collectors.joining("\n"));
 
         log.info(
@@ -137,12 +140,12 @@ public class TaskServiceCollectionImp implements TaskService {
     }
 
     @Override
-    public List<Task> searchTasksDueBefore(LocalDateTime dateTime) {
+    public List<Task> searchTasksDueBefore(LocalDate dueDate) {
         return tasks.values().stream()
                 .filter(task -> !task.isCompleted())
-                .filter(task -> task.getDueAt() != null)
-                .filter(task -> task.getDueAt().isBefore(dateTime))
-                .sorted(Comparator.comparing(Task::getDueAt))
+                .filter(task -> task.getDueDate() != null)
+                .filter(task -> task.getDueDate().isBefore(dueDate))
+                .sorted(Comparator.comparing(Task::getDueDate))
                 .toList();
     }
 
