@@ -1,8 +1,5 @@
 package sg.edu.ntu.taskflowapi.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -24,7 +21,6 @@ import jakarta.validation.constraints.NotBlank;
 @NoArgsConstructor
 @Getter
 @Setter
-@JsonPropertyOrder({ "id", "description", "stepOrder" })
 @Entity
 @Table(name = "step", 
        uniqueConstraints = @UniqueConstraint(name = "uk_step_task_order", 
@@ -43,7 +39,6 @@ public class Step {
     @NotBlank(message = "Description is mandatory")
     private String description;
 
-    @JsonBackReference
     @ManyToOne(optional = false)
     @JoinColumn(name = "task_id", referencedColumnName = "id")
     private Task task;

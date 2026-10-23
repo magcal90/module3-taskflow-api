@@ -6,7 +6,8 @@ import java.util.Optional;
 
 public final class TaskMapper {
 
-    private TaskMapper() {}
+    private TaskMapper() {
+    }
 
     public static Task toTask(TaskRequest taskRequest) {
         Task task = new Task();
@@ -14,7 +15,7 @@ public final class TaskMapper {
         task.setNote(taskRequest.note());
         task.setCompleted(taskRequest.completed());
         task.setDueDate(taskRequest.dueDate());
-        
+
         return task;
     }
 
@@ -30,4 +31,9 @@ public final class TaskMapper {
 
     }
 
+    public static List<TaskResponse> toTaskResponses(List<Task> tasks) {
+        return tasks.stream()
+                .map(TaskMapper::toTaskResponse)
+                .toList();
+    }
 }

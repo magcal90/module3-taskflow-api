@@ -1,7 +1,6 @@
 package sg.edu.ntu.taskflowapi.repository;
 
 import sg.edu.ntu.taskflowapi.model.Task;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;

@@ -7,6 +7,7 @@ import sg.edu.ntu.taskflowapi.repository.TaskRepository;
 import sg.edu.ntu.taskflowapi.exceptions.TaskNotFoundException;
 import sg.edu.ntu.taskflowapi.exceptions.StepNotFoundException;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,10 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.extern.slf4j.Slf4j;
 
-/** JPA-backed task service selected by the {@code jpa} profile. 
- *  @Transactional - Keeps the entity fetch and subsequent mutation atomic within one transaction.
- * 
-*/
+/**
+ * JPA-backed task service selected by the {@code jpa} profile.
+ * Write operations use method-level transactions where multiple persistence
+ * operations must complete atomically.
+ */
 @Service
 @Profile("jpa")
 @Primary
@@ -33,12 +35,15 @@ public class TaskServiceImpl implements TaskService {
     private final TaskRepository taskRepository;
     private final StepRepository stepRepository;
     private final ChatClient chatClient;
+    private final Clock clock;
     private static final boolean COMPLETED = true;
 
-    public TaskServiceImpl(TaskRepository taskRepository, StepRepository stepRepository, ChatClient chatClient) {
+    public TaskServiceImpl(TaskRepository taskRepository, StepRepository stepRepository,
+                           ChatClient chatClient, Clock clock) {
         this.taskRepository = taskRepository;
         this.stepRepository = stepRepository;
         this.chatClient = chatClient;
+        this.clock = clock;
     }
 
     @Override
@@ -54,7 +59,6 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    @Transactional
     public Task createTask(Task task) {
         Task savedTask = taskRepository.save(task);
         log.info("Task created: taskId={}, title={}", savedTask.getId(), savedTask.getTitle());
@@ -104,7 +108,7 @@ public class TaskServiceImpl implements TaskService {
             return "There are no tasks.";
         }
 
-        final LocalDate today = LocalDate.now();
+        final LocalDate today = LocalDate.now(clock);
 
         String taskList = tasks.stream()
                 .map(task -> TaskSummaryHelper.formatTasks(task, today))
@@ -199,6 +203,7 @@ public class TaskServiceImpl implements TaskService {
         stepRepository.delete(step);
         log.info("Step deleted: taskId={}, stepId={}", taskId, stepId);
     }
+
 
     private Step findStepByIdOrThrow(Long taskId, Long stepId) {
         findTaskByIdOrThrow(taskId);

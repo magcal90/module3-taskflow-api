@@ -1,36 +1,43 @@
 package sg.edu.ntu.taskflowapi.exceptions;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 import lombok.extern.slf4j.Slf4j;
 
-
-
-/** Converts application and validation exceptions into consistent API errors. */
+/**
+ * Converts application and validation exceptions into consistent API errors.
+ */
 @RestControllerAdvice
-@Slf4j 
+@Slf4j
 public class GlobalExceptionHandler {
+
+    private final Clock clock;
+
+    public GlobalExceptionHandler(Clock clock) {
+        this.clock = clock;
+    }
 
     @ExceptionHandler(TaskNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleTaskNotFoundException(TaskNotFoundException ex) {
         log.warn("Task request failed: {}", ex.getMessage());
-        return new ErrorResponse(ex.getMessage(), LocalDateTime.now());
+        return new ErrorResponse(ex.getMessage(), LocalDateTime.now(clock));
     }
 
     @ExceptionHandler(StepNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleStepNotFoundException(StepNotFoundException ex) {
         log.warn("Step request failed: {}", ex.getMessage());
-        return new ErrorResponse(ex.getMessage(), LocalDateTime.now());
+        return new ErrorResponse(ex.getMessage(), LocalDateTime.now(clock));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -48,7 +55,7 @@ public class GlobalExceptionHandler {
 
         log.warn("Request validation failed: {}", errorMessages);
 
-        return new ErrorResponse(errorMessages, LocalDateTime.now());
+        return new ErrorResponse(errorMessages, LocalDateTime.now(clock));
     }
 
     @ExceptionHandler(Exception.class)
@@ -57,7 +64,7 @@ public class GlobalExceptionHandler {
         // Log the exception here if needed
         log.error("Unexpected request failure", ex);
 
-        return new ErrorResponse("Something went wrong", LocalDateTime.now());
+        return new ErrorResponse("Something went wrong", LocalDateTime.now(clock));
 
     }
 

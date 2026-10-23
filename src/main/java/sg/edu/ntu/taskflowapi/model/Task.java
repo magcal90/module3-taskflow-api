@@ -1,7 +1,5 @@
 package sg.edu.ntu.taskflowapi.model;
 
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-
 import lombok.NoArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
@@ -27,7 +25,6 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Getter 
 @Setter
-@JsonPropertyOrder({ "id", "title", "note", "completed", "dueDate" })
 @Entity
 @Table(name = "task")
 public class Task {

@@ -19,10 +19,15 @@ import jakarta.validation.Valid;
 import sg.edu.ntu.taskflowapi.model.Task;
 import sg.edu.ntu.taskflowapi.model.Step;
 import sg.edu.ntu.taskflowapi.service.TaskService;
+import sg.edu.ntu.taskflowapi.dto.TaskMapper;
+import sg.edu.ntu.taskflowapi.dto.TaskRequest;
+import sg.edu.ntu.taskflowapi.dto.TaskResponse;
+import sg.edu.ntu.taskflowapi.dto.StepMapper;
+import sg.edu.ntu.taskflowapi.dto.StepRequest;
+import sg.edu.ntu.taskflowapi.dto.StepResponse;
 
 import java.util.List;
 import java.time.LocalDate;
-
 
 /**
  * Exposes task, search, summary, and nested-step REST operations.
@@ -41,8 +46,8 @@ public class TaskController {
 
     /** @return all tasks */
     @GetMapping
-    public List<Task> getAllTasks() {
-        return taskService.findAllTasks();
+    public List<TaskResponse> getAllTasks() {
+        return TaskMapper.toTaskResponses(taskService.findAllTasks());
     }
 
     /**
@@ -50,29 +55,31 @@ public class TaskController {
      * @return the matching task
      */
     @GetMapping("/{id}")
-    public Task getTaskById(@PathVariable Long id) {
-        return taskService.findTaskById(id);
+    public TaskResponse getTaskById(@PathVariable Long id) {
+        return TaskMapper.toTaskResponse(taskService.findTaskById(id));
     }
 
     /**
-     * @param task the validated task payload
+     * @param request the validated task payload
      * @return the created task
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Task createTask(@Valid @RequestBody Task task) {
-        return taskService.createTask(task);
+    public TaskResponse createTask(@Valid @RequestBody TaskRequest request) {
+        Task task = TaskMapper.toTask(request);
+        return TaskMapper.toTaskResponse(taskService.createTask(task));
     }
 
     /**
-     * @param id the task ID
-     * @param task the validated replacement values
+     * @param id      the task ID
+     * @param request the validated replacement values
      * @return the updated task
      */
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    public Task updateTask(@PathVariable Long id, @Valid @RequestBody Task task) {
-        return taskService.updateTask(id, task);
+    public TaskResponse updateTask(@PathVariable Long id, @Valid @RequestBody TaskRequest request) {
+        Task task = TaskMapper.toTask(request);
+        return TaskMapper.toTaskResponse(taskService.updateTask(id, task));
     }
 
     /** @param id the task ID */
@@ -88,8 +95,8 @@ public class TaskController {
      */
     @PutMapping("/{id}/complete")
     @ResponseStatus(HttpStatus.OK)
-    public Task markTaskAsCompleted(@PathVariable Long id) {
-        return taskService.markTaskAsCompleted(id);
+    public TaskResponse markTaskAsCompleted(@PathVariable Long id) {
+        return TaskMapper.toTaskResponse(taskService.markTaskAsCompleted(id));
     }
 
     /** @return a plain-text summary of the task list */
@@ -103,8 +110,8 @@ public class TaskController {
      * @return matching tasks
      */
     @GetMapping("/search")
-    public List<Task> searchTasksByKeyword(@RequestParam("keyword") String keyword) {
-        return taskService.searchTasksByKeyword(keyword);
+    public List<TaskResponse> searchTasksByKeyword(@RequestParam("keyword") String keyword) {
+        return TaskMapper.toTaskResponses(taskService.searchTasksByKeyword(keyword));
     }
 
     /**
@@ -112,8 +119,8 @@ public class TaskController {
      * @return matching tasks
      */
     @GetMapping("/completed")
-    public List<Task> getTasksByCompleted(@RequestParam("completed") boolean completed) {
-        return taskService.searchTasksByCompleted(completed);
+    public List<TaskResponse> getTasksByCompleted(@RequestParam("completed") boolean completed) {
+        return TaskMapper.toTaskResponses(taskService.searchTasksByCompleted(completed));
     }
 
     /**
@@ -121,19 +128,20 @@ public class TaskController {
      * @return pending tasks before the cutoff
      */
     @GetMapping("/due-before")
-    public List<Task> getTasksDueBefore(@RequestParam @DateTimeFormat(iso = DATE) LocalDate dueDate) {
-        return taskService.searchTasksDueBefore(dueDate);
+    public List<TaskResponse> getTasksDueBefore(@RequestParam @DateTimeFormat(iso = DATE) LocalDate dueDate) {
+        return TaskMapper.toTaskResponses(taskService.searchTasksDueBefore(dueDate));
     }
 
     /**
-     * @param taskId the task ID
-     * @param step the validated step payload
+     * @param taskId  the task ID
+     * @param request the validated step payload
      * @return the created step
      */
     @PostMapping("/{taskId}/steps")
     @ResponseStatus(HttpStatus.CREATED)
-    public Step addStepToTask(@PathVariable Long taskId, @Valid @RequestBody Step step) {
-        return taskService.addStepToTask(taskId, step);
+    public StepResponse addStepToTask(@PathVariable Long taskId, @Valid @RequestBody StepRequest request) {
+        Step stepEntity = StepMapper.toStep(request);
+        return StepMapper.toStepResponse(taskService.addStepToTask(taskId, stepEntity));
     }
 
     /**
@@ -141,8 +149,10 @@ public class TaskController {
      * @return the task's ordered steps
      */
     @GetMapping("/{taskId}/steps")
-    public List<Step> getStepsByTaskId(@PathVariable Long taskId) {
-        return taskService.findStepsByTaskId(taskId);
+    public List<StepResponse> getStepsByTaskId(@PathVariable Long taskId) {
+        return taskService.findStepsByTaskId(taskId).stream()
+                .map(StepMapper::toStepResponse)
+                .toList();
     }
 
     /**
@@ -151,22 +161,23 @@ public class TaskController {
      * @return the matching step
      */
     @GetMapping("/{taskId}/steps/{stepId}")
-    public Step getStepById(@PathVariable Long taskId, @PathVariable Long stepId) {
+    public StepResponse getStepById(@PathVariable Long taskId, @PathVariable Long stepId) {
 
-        return taskService.findStepById(taskId, stepId);
+        return StepMapper.toStepResponse(taskService.findStepById(taskId, stepId));
     }
 
     /**
      * @param taskId the task ID
      * @param stepId the step ID
-     * @param step the validated replacement values
+     * @param step   the validated replacement values
      * @return the updated step
      */
     @PutMapping("/{taskId}/steps/{stepId}")
     @ResponseStatus(HttpStatus.OK)
-    public Step updateStep(@PathVariable Long taskId, @PathVariable Long stepId, @Valid @RequestBody Step step) {
-
-        return taskService.updateStep(taskId, stepId, step);
+    public StepResponse updateStep(@PathVariable Long taskId, @PathVariable Long stepId,
+            @Valid @RequestBody StepRequest step) {
+        Step stepEntity = StepMapper.toStep(step);
+        return StepMapper.toStepResponse(taskService.updateStep(taskId, stepId, stepEntity));
     }
 
     /**
