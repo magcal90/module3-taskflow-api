@@ -1,65 +1,102 @@
 package sg.edu.ntu.taskflowapi.service;
 
 import sg.edu.ntu.taskflowapi.model.Task;
+import sg.edu.ntu.taskflowapi.model.Step;
+import sg.edu.ntu.taskflowapi.repository.StepRepository;
 import sg.edu.ntu.taskflowapi.repository.TaskRepository;
 import sg.edu.ntu.taskflowapi.exceptions.TaskNotFoundException;
+import sg.edu.ntu.taskflowapi.exceptions.StepNotFoundException;
 
-import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
+import org.springframework.transaction.annotation.Transactional;
 
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * JPA-backed task service selected by the {@code jpa} profile.
+ * Write operations use method-level transactions where multiple persistence
+ * operations must complete atomically.
+ */
 @Service
+@Profile("jpa")
+@Primary
+@Slf4j
+
 public class TaskServiceImpl implements TaskService {
     private final TaskRepository taskRepository;
+    private final StepRepository stepRepository;
     private final ChatClient chatClient;
+    private final Clock clock;
     private static final boolean COMPLETED = true;
-    private static final Logger logger = LoggerFactory.getLogger(TaskServiceImpl.class);
 
-    public TaskServiceImpl(TaskRepository taskRepository, ChatClient chatClient) {
+    public TaskServiceImpl(TaskRepository taskRepository, StepRepository stepRepository,
+                           ChatClient chatClient, Clock clock) {
         this.taskRepository = taskRepository;
+        this.stepRepository = stepRepository;
         this.chatClient = chatClient;
+        this.clock = clock;
     }
 
     @Override
     public List<Task> findAllTasks() {
+
         return taskRepository.findAll();
     }
 
     @Override
     public Task findTaskById(Long id) {
+
         return findTaskByIdOrThrow(id);
     }
 
     @Override
     public Task createTask(Task task) {
-        return taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+        log.info("Task created: taskId={}, title={}", savedTask.getId(), savedTask.getTitle());
+
+        return savedTask;
     }
 
     @Override
+    @Transactional
     public Task updateTask(Long id, Task task) {
         Task existingTask = findTaskByIdOrThrow(id);
-        task.setId(existingTask.getId());
-        return taskRepository.save(task);
+        existingTask.setTitle(task.getTitle());
+        existingTask.setNote(task.getNote());
+        existingTask.setCompleted(task.isCompleted());
+        existingTask.setDueDate(task.getDueDate());
+        Task savedTask = taskRepository.save(existingTask);
+        log.info("Task updated: taskId={}", id);
+
+        return savedTask;
     }
 
     @Override
+    @Transactional
     public void deleteTask(Long id) {
         Task task = findTaskByIdOrThrow(id);
         taskRepository.deleteById(task.getId());
-
+        log.info("Task deleted: taskId={}", id);
     }
 
     @Override
+    @Transactional
     public Task markTaskAsCompleted(Long id) {
         Task task = findTaskByIdOrThrow(id);
         task.setCompleted(COMPLETED);
-        return taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+        log.info("Task completed: taskId={}", id);
+
+        return savedTask;
     }
 
     @Override
@@ -71,28 +108,112 @@ public class TaskServiceImpl implements TaskService {
             return "There are no tasks.";
         }
 
-        final LocalDateTime now = LocalDateTime.now();
+        final LocalDate today = LocalDate.now(clock);
 
         String taskList = tasks.stream()
-                .map(task -> TaskSummaryHelper.formatTasks(task, now))
+                .map(task -> TaskSummaryHelper.formatTasks(task, today))
                 .collect(Collectors.joining("\n"));
 
-        logger.info("Generating task summary for {} tasks", tasks.size());
+        log.info("Generating task summary for {} tasks", tasks.size());
 
-        try {
-            return chatClient
-                    .prompt()
-                    .system(TaskSummaryHelper.SYSTEM_PROMPT)
-                    .user(TaskSummaryHelper.formatUserPrompt(taskList))
-                    .call()
-                    .content();
-        } catch (RuntimeException runtimeException) {
-            logger.error("Failed to generate task summary", runtimeException);
-            throw runtimeException;
+        return chatClient
+                .prompt()
+                .system(TaskSummaryHelper.SYSTEM_PROMPT)
+                .user(TaskSummaryHelper.formatUserPrompt(taskList))
+                .call()
+                .content();
+
+    }
+
+    @Override
+    public List<Task> searchTasksByKeyword(String keyword) {
+        List<Task> tasks = taskRepository.findByTitleContainingIgnoreCaseOrNoteContainingIgnoreCase(keyword, keyword);
+        log.debug("Task keyword search completed: keyword={}, resultCount={}", keyword, tasks.size());
+
+        return tasks;
+    }
+
+    @Override
+    public List<Task> searchTasksByCompleted(boolean completed) {
+
+        return taskRepository.findByCompleted(completed);
+    }
+
+    @Override
+    public List<Task> searchTasksDueBefore(LocalDate dueDate) {
+
+        return taskRepository.findByCompletedFalseAndDueDateBeforeOrderByDueDateAsc(dueDate);
+    }
+
+    @Override
+    @Transactional
+    public Step addStepToTask(Long taskId, Step step) {
+        Task task = findTaskByIdOrThrow(taskId);
+
+        int nextStepOrder = stepRepository
+                .findTopByTaskIdOrderByStepOrderDesc(taskId)
+                .map(lastStep -> lastStep.getStepOrder() + 1)
+                .orElse(1);
+
+        step.setId(null);
+        step.setTask(task);
+        step.setStepOrder(nextStepOrder);
+        if (task.getSteps() == null) {
+            task.setSteps(new ArrayList<>());
         }
+        task.getSteps().add(step);
+        Step savedStep = stepRepository.save(step);
+
+        log.info("Step created: taskId={}, stepId={}, stepOrder={}", taskId,
+                                                                                savedStep.getId(),
+                                                                                savedStep.getStepOrder());
+
+        return savedStep;
+    }
+
+    @Override
+    public List<Step> findStepsByTaskId(Long taskId) {
+        findTaskByIdOrThrow(taskId);
+
+        return stepRepository.findByTaskIdOrderByStepOrderAsc(taskId);
+    }
+
+    @Override
+    public Step findStepById(Long taskId, Long stepId) {
+
+        return findStepByIdOrThrow(taskId, stepId);
+    }
+
+    @Override
+    @Transactional
+    public Step updateStep(Long taskId, Long stepId, Step updatedStep) {
+        Step existingStep = findStepByIdOrThrow(taskId, stepId);
+        existingStep.setDescription(updatedStep.getDescription());
+        Step savedStep = stepRepository.save(existingStep);
+        log.info("Step updated: taskId={}, stepId={}", taskId, stepId);
+
+        return savedStep;
+    }
+
+    @Override
+    @Transactional
+    public void deleteStep(Long taskId, Long stepId) {
+        Step step = findStepByIdOrThrow(taskId, stepId);
+        step.getTask().getSteps().remove(step);
+        stepRepository.delete(step);
+        log.info("Step deleted: taskId={}, stepId={}", taskId, stepId);
+    }
+
+
+    private Step findStepByIdOrThrow(Long taskId, Long stepId) {
+        findTaskByIdOrThrow(taskId);
+
+        return stepRepository.findByIdAndTaskId(stepId, taskId)
+                .orElseThrow(() -> new StepNotFoundException(taskId, stepId));
     }
 
     private Task findTaskByIdOrThrow(Long id) {
+
         return taskRepository.findById(id).orElseThrow(() -> new TaskNotFoundException(id));
     }
 

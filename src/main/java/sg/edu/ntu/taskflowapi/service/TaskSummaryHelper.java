@@ -1,10 +1,12 @@
 package sg.edu.ntu.taskflowapi.service;
 
 import sg.edu.ntu.taskflowapi.model.Task;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+
+import java.time.LocalDate;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 
 
+/** Formats task data and prompts for AI summary generation. */
 public final class TaskSummaryHelper {
 
     public static final String SYSTEM_PROMPT = """
@@ -23,11 +25,15 @@ public final class TaskSummaryHelper {
             Keep the response concise.
             """;
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-
     private TaskSummaryHelper() {
     }
 
+    /**
+     * Wraps formatted task data in the user prompt.
+     *
+     * @param taskList formatted task entries
+     * @return the complete user prompt
+     */
     public static String formatUserPrompt(String taskList) {
         return """
                 Summarize the following tasks:
@@ -36,33 +42,40 @@ public final class TaskSummaryHelper {
                 """.formatted(taskList);
     }
 
-    public static String formatTasks(Task task, LocalDateTime now) {
-        String dueAt = task.getDueAt() != null
-                ? task.getDueAt().format(DATE_FORMATTER)
+    /**
+     * Formats a task with a deterministic status relative to a supplied date.
+     *
+     * @param task the task to format
+     * @param today the date used to determine overdue status
+     * @return the formatted task entry
+     */
+    public static String formatTasks(Task task, LocalDate today) {
+        String dueDate = task.getDueDate() != null
+                ? task.getDueDate().format(ISO_LOCAL_DATE)
                 : "No due date";
 
-        String description = task.getDescription() != null
-                && !task.getDescription().isBlank()
-                        ? task.getDescription()
-                        : "No description";
+        String note = task.getNote() != null
+                && !task.getNote().isBlank()
+                        ? task.getNote()
+                        : "No note";
 
         return """
                 - Title: %s
-                  Description: %s
+                  Note: %s
                   Status: %s
                   Due: %s
                 """.formatted(
                 task.getTitle(),
-                description,
-                resolveStatus(task, now),
-                dueAt);
+                note,
+                resolveStatus(task, today),
+                dueDate);
     }
 
-    private static String resolveStatus(Task task, LocalDateTime now) {
+    private static String resolveStatus(Task task, LocalDate today) {
         if (task.isCompleted()) {
             return "DONE";
         }
-        if (task.getDueAt() != null && task.getDueAt().isBefore(now)) {
+        if (task.getDueDate() != null && task.getDueDate().isBefore(today)) {
             return "OVERDUE";
         }
         return "PENDING";

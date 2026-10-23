@@ -1,20 +1,34 @@
 package sg.edu.ntu.taskflowapi.repository;
 
 import sg.edu.ntu.taskflowapi.model.Task;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 
-public interface TaskRepository {
+/** Provides persistence and derived searches for tasks. */
+public interface TaskRepository extends JpaRepository<Task, Long> {
 
-    Optional<Task> findById(Long id);
+    /**
+     * @param titleKeyword text to find in a title
+     * @param noteKeyword text to find in a note
+     * @return tasks matching either field, ignoring case
+     */
+    List<Task> findByTitleContainingIgnoreCaseOrNoteContainingIgnoreCase(
+            String titleKeyword,
+            String noteKeyword);
 
-    Task save(Task task);
+    /**
+     * @param completed the required completion state
+     * @return matching tasks
+     */
+    List<Task> findByCompleted(boolean completed);
 
-    void deleteById(Long id);
-
-    boolean existsById(Long id);
-
-    List<Task> findAll();
+    /**
+     * @param dueDate the exclusive due-date cutoff
+     * @return incomplete tasks before the cutoff in ascending due-date order
+     */
+    List<Task> findByCompletedFalseAndDueDateBeforeOrderByDueDateAsc(LocalDate dueDate);
 
 }

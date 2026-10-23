@@ -1,10 +1,11 @@
 package sg.edu.ntu.taskflowapi.exceptions;
 
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.http.HttpStatus;
-
-@ResponseStatus(HttpStatus.NOT_FOUND)
+/** Indicates that a requested task does not exist. */
 public class TaskNotFoundException extends RuntimeException {
+
+    /**
+     * @param id the missing task ID
+     */
     public TaskNotFoundException(Long id) {
         super("Task not found: " + id);
     }
