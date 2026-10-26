@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Taskflow API is a Spring Boot REST API for managing tasks and their ordered steps. It provides task and step CRUD, task completion, keyword and status filtering, pending-task due-date queries, validation, centralized error handling, JPA persistence to H2, and AI-generated task summaries. Integration tests exercise the application through MockMvc.
+Taskflow API is a Spring Boot REST API for managing tasks and their ordered steps. It provides task and step CRUD, task completion, keyword and status filtering, pending-task due-date queries, validation, centralized error handling, JPA persistence to H2, and AI-generated task summaries. A small JUnit and MockMvc test suite demonstrates the testing techniques used; it is not comprehensive coverage.
 
 ## Technology stack
 
@@ -13,7 +13,7 @@ Taskflow API is a Spring Boot REST API for managing tasks and their ordered step
 | Spring AI | 2.0.1 |
 | Maven Wrapper | Maven 3.10.0 |
 | Spring Web MVC, Data JPA, Validation, H2 | Managed by Spring Boot |
-| JUnit Jupiter, MockMvc, AssertJ | Spring Boot test dependencies |
+| JUnit Jupiter, MockMvc | Spring Boot test dependencies |
 
 Lombok generates entity accessors and constructors.
 
@@ -186,7 +186,7 @@ An empty task list returns `There are no tasks.` without calling the model. Mode
 
 The main configuration uses the `jpa` profile, `jdbc:h2:mem:taskflow-api`, the H2 console at `/h2`, and OpenAI model `gpt-4o-mini` with temperature `0.7`. `app.time-zone` configures the injected application clock used for task-summary date calculations and error-response timestamps.
 
-Tests use `jdbc:h2:mem:taskflow-integration-test;DB_CLOSE_DELAY=-1`. The suffix keeps the database available for the test JVM after the last connection closes. Tests use schema `create-drop`, disable Open Session in View, and disable persistence lifecycle validation so historical overdue fixtures can be inserted directly; controller validation remains enabled.
+Tests use `jdbc:h2:mem:taskflow-integration-test;DB_CLOSE_DELAY=-1`. The suffix keeps the database available for the test JVM after the last connection closes. Tests use schema `create-drop`.
 
 Both H2 databases are in memory and disappear when their JVM stops.
 
@@ -203,8 +203,6 @@ export OPENAI_API_KEY="your-key"
 # PowerShell
 $env:OPENAI_API_KEY="your-key"
 ```
-
-The automated summary test replaces `ChatClient` with a deterministic test bean and does not call OpenAI. The variable must still be defined when the current application or test context starts because configuration resolves it during startup; a non-secret placeholder is sufficient for tests.
 
 ## Running the application
 
@@ -224,15 +222,14 @@ Select the collection-backed implementation with:
 ## Running the tests
 
 ```bash
-export OPENAI_API_KEY="test-placeholder"
 ./mvnw test
 ```
 
-The integration tests use `@SpringBootTest`, MockMvc, the real application context, the `test` and `jpa` profiles, transactions, and an in-memory H2 test database. They cover application startup, successful task and step CRUD, database persistence, task completion, cascade deletion, searches, due-date ordering, validation failures (`400`), missing resources (`404`), nested-resource ownership, and deterministic summary behavior. Docker and PostgreSQL are not required.
+The controller tests use `@SpringBootTest`, MockMvc, the `test` and `jpa` profiles, transactions, and an in-memory H2 test database. Their limited examples cover seven valid task-creation inputs, task and step persistence, task updates, and step creation, including its initial order and owning task. Service unit tests cover task creation and lookup of an existing task. The suite has 11 tests: 9 controller tests and 2 service tests. It is intended to apply the lesson's testing techniques, not to verify every endpoint or behavior. Docker and PostgreSQL are not required.
 
 ### Test output
 
-Integration tests print `Response Code: ...` and `Response Body: ...` for API calls. Maven Surefire writes XML and text reports to `target/surefire-reports/`; generated `target/` content should generally not be committed.
+Selected integration-test responses are logged as `Response Code: ...` and `Response Body: ...`. Maven Surefire writes XML and text reports to `target/surefire-reports/`; generated `target/` content should generally not be committed.
 
 ## Error handling
 
